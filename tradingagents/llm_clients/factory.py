@@ -47,6 +47,16 @@ def create_llm_client(
         from .bedrock_client import BedrockClient
         return BedrockClient(model, base_url, **kwargs)
 
+    # Subscription CLIs: LLM calls go through the local `codex` / `claude`
+    # binary (headless mode) instead of an HTTP API. No API key involved.
+    if provider_lower == "codex-cli":
+        from .cli_client import CodexCLIClient
+        return CodexCLIClient(model, base_url, **kwargs)
+
+    if provider_lower == "claude-code":
+        from .cli_client import ClaudeCodeCLIClient
+        return ClaudeCodeCLIClient(model, base_url, **kwargs)
+
     from .openai_client import OpenAIClient, is_openai_compatible
     if is_openai_compatible(provider_lower):
         return OpenAIClient(model, base_url, provider=provider_lower, **kwargs)

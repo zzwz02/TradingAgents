@@ -8,6 +8,9 @@ from .model_catalog import get_known_models
 _ANY_MODEL_PROVIDERS = (
     "ollama", "openrouter", "openai_compatible",
     "mistral", "kimi", "groq", "nvidia", "bedrock",
+    # Subscription CLIs accept aliases ("sonnet", "default") and whatever
+    # models the plan serves, so any model string is accepted.
+    "codex-cli", "claude-code",
 )
 
 VALID_MODELS = {

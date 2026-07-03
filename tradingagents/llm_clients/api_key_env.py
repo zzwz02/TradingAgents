@@ -37,6 +37,10 @@ PROVIDER_API_KEY_ENV: dict[str, str | None] = {
     "nvidia":     "NVIDIA_API_KEY",
     # Local runtimes do not authenticate.
     "ollama":     None,
+    # Subscription CLIs authenticate via the logged-in `codex` / `claude`
+    # binary (ChatGPT / Claude plan), not an API key env var.
+    "codex-cli":   None,
+    "claude-code": None,
     # Generic OpenAI-compatible endpoint: the client reads this when set (keyed
     # relays), but it is marked key-optional in the provider registry so the CLI
     # never forces a prompt and keyless local servers still work.

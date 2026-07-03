@@ -2,7 +2,7 @@ import datetime
 import os
 import time
 from collections import deque
-from functools import wraps
+from functools import partial, wraps
 from pathlib import Path
 
 import typer
@@ -703,6 +703,13 @@ def get_user_selections():
             "TRADINGAGENTS_OPENAI_REASONING_EFFORT", "openai_reasoning_effort",
             "Reasoning effort", "Step 8: Reasoning Effort",
             "Configure OpenAI reasoning effort level", ask_openai_reasoning_effort,
+        )
+    elif provider_lower == "codex-cli":
+        reasoning_effort = thinking_value_or_prompt(
+            "TRADINGAGENTS_OPENAI_REASONING_EFFORT", "openai_reasoning_effort",
+            "Reasoning effort", "Step 8: Reasoning Effort",
+            "Configure Codex reasoning effort level",
+            partial(ask_openai_reasoning_effort, include_xhigh=True),
         )
     elif provider_lower == "anthropic":
         anthropic_effort = thinking_value_or_prompt(

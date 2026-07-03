@@ -363,6 +363,8 @@ def _llm_provider_table() -> list[tuple[str, str, str | None]]:
         ("Amazon Bedrock", "bedrock", None),
         ("Ollama", "ollama", ollama_url),
         ("OpenAI-compatible (vLLM, LM Studio, llama.cpp, custom relay)", "openai_compatible", None),
+        ("Codex CLI (ChatGPT subscription, local `codex` binary, no API key)", "codex-cli", None),
+        ("Claude Code (Claude subscription, local `claude` binary, no API key)", "claude-code", None),
     ]
 
 
@@ -430,13 +432,25 @@ def select_llm_provider() -> tuple[str, str | None]:
     return provider, url
 
 
-def ask_openai_reasoning_effort() -> str:
-    """Ask for OpenAI reasoning effort level."""
-    choices = [
-        questionary.Choice("Medium (Default)", "medium"),
-        questionary.Choice("High (More thorough)", "high"),
-        questionary.Choice("Low (Faster)", "low"),
-    ]
+def ask_openai_reasoning_effort(include_xhigh: bool = False) -> str:
+    """Ask for OpenAI/Codex reasoning effort level.
+
+    ``include_xhigh`` adds Codex's maximum depth (and makes it the default);
+    the OpenAI API path keeps the medium/high/low set it accepts.
+    """
+    if include_xhigh:
+        choices = [
+            questionary.Choice("XHigh (Codex max, Default)", "xhigh"),
+            questionary.Choice("High", "high"),
+            questionary.Choice("Medium", "medium"),
+            questionary.Choice("Low (Faster)", "low"),
+        ]
+    else:
+        choices = [
+            questionary.Choice("Medium (Default)", "medium"),
+            questionary.Choice("High (More thorough)", "high"),
+            questionary.Choice("Low (Faster)", "low"),
+        ]
     return questionary.select(
         "Select Reasoning Effort:",
         choices=choices,

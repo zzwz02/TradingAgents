@@ -24,6 +24,7 @@ _ENV_OVERRIDES = {
     "TRADINGAGENTS_GOOGLE_THINKING_LEVEL":   "google_thinking_level",
     "TRADINGAGENTS_OPENAI_REASONING_EFFORT": "openai_reasoning_effort",
     "TRADINGAGENTS_ANTHROPIC_EFFORT":        "anthropic_effort",
+    "TRADINGAGENTS_CLI_PERSISTENT":          "cli_persistent",
 }
 
 
@@ -67,7 +68,36 @@ def _apply_env_overrides(config: dict) -> dict:
     return config
 
 
-DEFAULT_CONFIG = _apply_env_overrides({
+# Subscription-CLI providers get stronger defaults than the API providers:
+# usage is quota-metered rather than token-billed, so when the model env vars
+# are left unset, default to the plan's best models at maximum thinking depth.
+_CLI_PROVIDER_DEFAULTS = {
+    "codex-cli": {
+        "deep_think_llm": "gpt-5.5",
+        "quick_think_llm": "gpt-5.5",
+        "openai_reasoning_effort": "xhigh",   # Codex max
+    },
+    "claude-code": {
+        "deep_think_llm": "claude-fable-5",
+        "quick_think_llm": "claude-opus-4-8",
+        "anthropic_effort": "xhigh",          # Claude Code --effort scale: low..max
+    },
+}
+
+
+def _apply_cli_provider_defaults(config: dict) -> dict:
+    """Swap in the CLI-provider defaults for keys the user did not set."""
+    defaults = _CLI_PROVIDER_DEFAULTS.get(str(config.get("llm_provider", "")).lower())
+    if not defaults:
+        return config
+    env_by_key = {key: env_var for env_var, key in _ENV_OVERRIDES.items()}
+    for key, value in defaults.items():
+        if not os.environ.get(env_by_key[key]):
+            config[key] = value
+    return config
+
+
+DEFAULT_CONFIG = _apply_cli_provider_defaults(_apply_env_overrides({
     "project_dir": os.path.abspath(os.path.join(os.path.dirname(__file__), ".")),
     "results_dir": os.getenv("TRADINGAGENTS_RESULTS_DIR", os.path.join(_TRADINGAGENTS_HOME, "logs")),
     "data_cache_dir": os.getenv("TRADINGAGENTS_CACHE_DIR", os.path.join(_TRADINGAGENTS_HOME, "cache")),
@@ -90,6 +120,10 @@ DEFAULT_CONFIG = _apply_env_overrides({
     "google_thinking_level": None,      # "high", "minimal", etc.
     "openai_reasoning_effort": None,    # "medium", "high", "low"
     "anthropic_effort": None,           # "high", "medium", "low"
+    # codex-cli provider only: True routes calls through a persistent
+    # `codex mcp-server` process (fast path); False spawns `codex exec`
+    # per call.
+    "cli_persistent": True,
     # Sampling temperature, forwarded to every provider when set. None leaves
     # each provider at its own default. Lower values reduce run-to-run
     # variation on models that honor it; reasoning models largely ignore it
@@ -156,4 +190,4 @@ DEFAULT_CONFIG = _apply_env_overrides({
         ".SZ":  "399001.SZ",   # Shenzhen (SZSE Component)
         "":     "SPY",         # default for US-listed tickers (no suffix)
     },
-})
+}))
