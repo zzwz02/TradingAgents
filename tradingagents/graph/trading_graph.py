@@ -153,6 +153,23 @@ class TradingAgentsGraph:
             if reasoning_effort:
                 kwargs["reasoning_effort"] = reasoning_effort
 
+        elif provider == "codex-cli":
+            # Codex reuses the OpenAI effort knob (-c model_reasoning_effort).
+            # Subscription usage is quota-metered, so default to Codex's
+            # maximum reasoning depth unless the user configured otherwise.
+            kwargs["reasoning_effort"] = (
+                self.config.get("openai_reasoning_effort") or "xhigh"
+            )
+            if self.config.get("cli_persistent") is not None:
+                kwargs["cli_persistent"] = self.config["cli_persistent"]
+
+        elif provider == "claude-code":
+            # Claude Code's --effort accepts low..max; default to xhigh for
+            # the same reason as codex-cli above.
+            kwargs["reasoning_effort"] = (
+                self.config.get("anthropic_effort") or "xhigh"
+            )
+
         elif provider == "anthropic":
             effort = self.config.get("anthropic_effort")
             if effort:

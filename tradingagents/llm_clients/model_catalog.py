@@ -127,6 +127,37 @@ MODEL_OPTIONS: ProviderModeOptions = {
             ("Qwen3:latest (8B, local)", "qwen3:latest"),
         ],
     },
+    # Subscription CLIs: "default" means "do not pass a model flag; use the
+    # CLI's own configured default".
+    "codex-cli": {
+        "quick": [
+            ("GPT-5.5 - recommended (pair with xhigh reasoning)", "gpt-5.5"),
+            ("Codex default model (per your ChatGPT plan)", "default"),
+            ("Custom model ID (passed to codex -m)", "custom"),
+        ],
+        "deep": [
+            ("GPT-5.5 - recommended (pair with xhigh reasoning)", "gpt-5.5"),
+            ("Codex default model (per your ChatGPT plan)", "default"),
+            ("Custom model ID (passed to codex -m)", "custom"),
+        ],
+    },
+    "claude-code": {
+        "quick": [
+            ("Claude Opus 4.8 - recommended (xhigh thinking)", "claude-opus-4-8"),
+            ("Haiku (alias - fastest)", "haiku"),
+            ("Sonnet (alias - balanced)", "sonnet"),
+            ("Default model (per your Claude Code settings)", "default"),
+            ("Custom model ID", "custom"),
+        ],
+        "deep": [
+            ("Claude Fable 5 - recommended (xhigh thinking)", "claude-fable-5"),
+            ("Claude Opus 4.8", "claude-opus-4-8"),
+            ("Opus (alias - most capable)", "opus"),
+            ("Sonnet (alias - balanced)", "sonnet"),
+            ("Default model (per your Claude Code settings)", "default"),
+            ("Custom model ID", "custom"),
+        ],
+    },
 }
 
 

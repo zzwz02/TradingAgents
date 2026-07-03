@@ -50,4 +50,14 @@ def create_llm_client(
         from .azure_client import AzureOpenAIClient
         return AzureOpenAIClient(model, base_url, **kwargs)
 
+    # Subscription CLIs: LLM calls go through the local `codex` / `claude`
+    # binary instead of an HTTP API. No API key involved.
+    if provider_lower == "codex-cli":
+        from .cli_client import CodexCLIClient
+        return CodexCLIClient(model, base_url, **kwargs)
+
+    if provider_lower == "claude-code":
+        from .cli_client import ClaudeCodeCLIClient
+        return ClaudeCodeCLIClient(model, base_url, **kwargs)
+
     raise ValueError(f"Unsupported LLM provider: {provider}")

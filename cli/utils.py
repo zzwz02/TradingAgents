@@ -1,3 +1,5 @@
+import os
+
 import questionary
 from typing import List, Optional, Tuple, Dict
 
@@ -238,10 +240,10 @@ def select_deep_thinking_agent(provider) -> str:
     """Select deep thinking llm engine using an interactive selection."""
     return _select_model(provider, "deep")
 
-def select_llm_provider() -> tuple[str, str | None]:
-    """Select the LLM provider and its API endpoint."""
-    # (display_name, provider_key, base_url)
-    PROVIDERS = [
+def _llm_provider_table() -> list[tuple[str, str, str | None]]:
+    """Return the CLI provider menu as (display_name, provider_key, base_url)."""
+    ollama_url = os.environ.get("OLLAMA_BASE_URL") or "http://localhost:11434/v1"
+    return [
         ("OpenAI", "openai", "https://api.openai.com/v1"),
         ("Google", "google", None),
         ("Anthropic", "anthropic", "https://api.anthropic.com/"),
@@ -251,14 +253,21 @@ def select_llm_provider() -> tuple[str, str | None]:
         ("GLM", "glm", "https://open.bigmodel.cn/api/paas/v4/"),
         ("OpenRouter", "openrouter", "https://openrouter.ai/api/v1"),
         ("Azure OpenAI", "azure", None),
-        ("Ollama", "ollama", "http://localhost:11434/v1"),
+        ("Ollama", "ollama", ollama_url),
+        ("Codex CLI (ChatGPT subscription, local `codex` binary, no API key)", "codex-cli", None),
+        ("Claude Code (Claude subscription, local `claude` binary, no API key)", "claude-code", None),
     ]
+
+
+def select_llm_provider() -> tuple[str, str | None]:
+    """Select the LLM provider and its API endpoint."""
+    providers = _llm_provider_table()
 
     choice = questionary.select(
         "Select your LLM Provider:",
         choices=[
             questionary.Choice(display, value=(provider_key, url))
-            for display, provider_key, url in PROVIDERS
+            for display, provider_key, url in providers
         ],
         instruction="\n- Use arrow keys to navigate\n- Press Enter to select",
         style=questionary.Style(
@@ -278,13 +287,21 @@ def select_llm_provider() -> tuple[str, str | None]:
     return provider, url
 
 
-def ask_openai_reasoning_effort() -> str:
-    """Ask for OpenAI reasoning effort level."""
-    choices = [
-        questionary.Choice("Medium (Default)", "medium"),
-        questionary.Choice("High (More thorough)", "high"),
-        questionary.Choice("Low (Faster)", "low"),
-    ]
+def ask_openai_reasoning_effort(include_xhigh: bool = False) -> str:
+    """Ask for OpenAI/Codex reasoning effort level."""
+    if include_xhigh:
+        choices = [
+            questionary.Choice("XHigh (Codex max, Default)", "xhigh"),
+            questionary.Choice("High", "high"),
+            questionary.Choice("Medium", "medium"),
+            questionary.Choice("Low (Faster)", "low"),
+        ]
+    else:
+        choices = [
+            questionary.Choice("Medium (Default)", "medium"),
+            questionary.Choice("High (More thorough)", "high"),
+            questionary.Choice("Low (Faster)", "low"),
+        ]
     return questionary.select(
         "Select Reasoning Effort:",
         choices=choices,

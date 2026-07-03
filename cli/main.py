@@ -587,6 +587,14 @@ def get_user_selections():
             )
         )
         reasoning_effort = ask_openai_reasoning_effort()
+    elif provider_lower == "codex-cli":
+        console.print(
+            create_question_box(
+                "Step 8: Reasoning Effort",
+                "Configure Codex CLI reasoning effort level"
+            )
+        )
+        reasoning_effort = ask_openai_reasoning_effort(include_xhigh=True)
     elif provider_lower == "anthropic":
         console.print(
             create_question_box(
