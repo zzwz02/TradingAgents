@@ -76,13 +76,24 @@ st.markdown(
         font-family: 'Inter', -apple-system, sans-serif;
     }
     .stApp {
-        background: #0a0a0a;
+        background: #ffffff;
+        color: #111827;
+    }
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"],
+    .main,
+    .block-container {
+        background: #ffffff !important;
+        color: #111827 !important;
     }
     section[data-testid="stSidebar"] {
-        background: #0f0f0f;
-        border-right: 1px solid #1a1a1a;
+        background: #f8fafc;
+        border-right: 1px solid #e5e7eb;
     }
-    .stMetric label { color: #888 !important; font-size: 0.8rem !important; }
+    section[data-testid="stSidebar"] * {
+        color: #1f2937;
+    }
+    .stMetric label { color: #64748b !important; font-size: 0.8rem !important; }
     .stMetric [data-testid="stMetricValue"] {
         color: #ff5a1f !important;
         font-weight: 700 !important;
@@ -105,48 +116,54 @@ st.markdown(
     }
     /* Secondary buttons (history items) */
     button[kind="secondary"] {
-        background: #161616 !important;
-        border: 1px solid #2a2a2a !important;
-        color: #ccc !important;
+        background: #ffffff !important;
+        border: 1px solid #d1d5db !important;
+        color: #334155 !important;
         transition: all 0.2s ease !important;
     }
     button[kind="secondary"]:hover {
-        background: #1e1e1e !important;
+        background: #fff7ed !important;
         border-color: #ff5a1f !important;
         color: #ff5a1f !important;
     }
     .stExpander {
-        border: 1px solid #222 !important;
+        border: 1px solid #e5e7eb !important;
         border-radius: 8px !important;
+        background: #ffffff !important;
     }
     .stTabs [data-baseweb="tab"] {
-        color: #888 !important;
+        color: #64748b !important;
     }
     .stTabs [aria-selected="true"] {
         color: #ff5a1f !important;
         border-bottom-color: #ff5a1f !important;
     }
     div[data-testid="stDownloadButton"] button {
-        background: #1a1a2e !important;
+        background: #fff7ed !important;
         border: 1px solid #ff5a1f !important;
         color: #ff5a1f !important;
     }
     /* Text input styling */
     input[data-testid="stTextInputRootElement"] input,
     .stTextInput input {
-        background: #161616 !important;
-        border-color: #2a2a2a !important;
-        color: #f5f1eb !important;
+        background: #ffffff !important;
+        border-color: #d1d5db !important;
+        color: #111827 !important;
     }
     .stTextInput input:focus {
         border-color: #ff5a1f !important;
         box-shadow: 0 0 0 1px #ff5a1f !important;
     }
+    div[data-baseweb="select"] > div {
+        background: #ffffff !important;
+        border-color: #d1d5db !important;
+        color: #111827 !important;
+    }
     /* Date input styling */
     .stDateInput input {
-        background: #161616 !important;
-        border-color: #2a2a2a !important;
-        color: #f5f1eb !important;
+        background: #ffffff !important;
+        border-color: #d1d5db !important;
+        color: #111827 !important;
     }
     </style>
     """,
@@ -301,18 +318,19 @@ else:
                 font-weight: 900;
                 margin-bottom: 0.5rem;
             ">
-                <span style="color: #ff5a1f;">Trading</span><span style="color: #f5f1eb;">Agents</span><span style="color: #f5f1eb;">-</span><span style="color: #ff5a1f;">Astock</span>
+                <span style="color: #ff5a1f;">Trading</span><span style="color: #111827;">Agents</span><span style="color: #111827;">-</span><span style="color: #ff5a1f;">Astock</span>
             </div>
-            <div style="color: #888; font-size: 1.1rem; max-width: 500px; line-height: 1.6;">
+            <div style="color: #64748b; font-size: 1.1rem; max-width: 500px; line-height: 1.6;">
                 A股多Agent投研分析系统<br>
                 7位AI分析师 → 质量门控 → 多空辩论 → 风控评估 → 最终决策
             </div>
             <div style="
                 margin-top: 2rem;
                 padding: 1rem 2rem;
-                border: 1px solid #222;
+                border: 1px solid #e5e7eb;
                 border-radius: 12px;
-                color: #666;
+                background: #f8fafc;
+                color: #475569;
                 font-size: 0.9rem;
             ">
                 ← 在左侧输入股票代码，开始分析
@@ -320,11 +338,11 @@ else:
             <div style="
                 margin-top: 2.5rem;
                 padding: 0.8rem 1.5rem;
-                color: #555;
+                color: #64748b;
                 font-size: 0.75rem;
                 max-width: 500px;
                 line-height: 1.6;
-                border-top: 1px solid #1a1a1a;
+                border-top: 1px solid #e5e7eb;
             ">
                 ⚠️ 本项目仅供学习研究与技术演示，不构成任何投资建议。<br>
                 投资决策请咨询持牌专业机构。作者不对使用本工具产生的任何损失承担责任。

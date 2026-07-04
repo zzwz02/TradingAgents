@@ -60,23 +60,23 @@ def render_report(
     stats_html = ""
     if elapsed is not None:
         m, s = divmod(int(elapsed), 60)
-        stats_html = f'<div style="font-size:0.9rem; color:#888; margin-top:0.3rem;">耗时 {m}:{s:02d}</div>'
+        stats_html = f'<div style="font-size:0.9rem; color:#64748b; margin-top:0.3rem;">耗时 {m}:{s:02d}</div>'
 
     st.markdown(
         f"""
         <div style="
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 1px solid #333;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
             border-radius: 16px;
             padding: 2rem;
             text-align: center;
             margin: 1rem 0 2rem;
         ">
-            <div style="font-size:0.9rem; color:#888; letter-spacing:2px;">TRADING SIGNAL</div>
+            <div style="font-size:0.9rem; color:#64748b; letter-spacing:2px;">TRADING SIGNAL</div>
             <div style="font-size:3.5rem; font-weight:900; color:{color}; margin:0.3rem 0;">
                 {signal.upper()}
             </div>
-            <div style="font-size:1.2rem; color:#f5f1eb;">
+            <div style="font-size:1.2rem; color:#111827;">
                 {ticker_label} · {trade_date}
             </div>
             {stats_html}

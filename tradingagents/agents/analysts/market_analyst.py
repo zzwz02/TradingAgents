@@ -1,3 +1,7 @@
+import logging
+from datetime import datetime
+
+from dateutil.relativedelta import relativedelta
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
@@ -7,12 +11,99 @@ from tradingagents.agents.utils.agent_utils import (
 )
 from tradingagents.dataflows.config import get_config
 
+logger = logging.getLogger(__name__)
+
+_PREFETCH_STOCK_LOOKBACK_DAYS = 45
+_PREFETCH_INDICATOR_LOOKBACK_DAYS = 30
+_PREFETCH_INDICATORS = (
+    "close_10_ema",
+    "close_50_sma",
+    "close_200_sma",
+    "macd",
+    "macds",
+    "macdh",
+    "rsi",
+    "atr",
+)
+
+
+def _safe_tool_invoke(tool_obj, payload: dict) -> str:
+    try:
+        return str(tool_obj.invoke(payload))
+    except Exception as exc:
+        name = getattr(tool_obj, "name", tool_obj.__class__.__name__)
+        return f"[数据缺失: {name}] {type(exc).__name__}: {exc}"
+
+
+def _prefetch_start_date(current_date: str) -> str:
+    try:
+        current_dt = datetime.strptime(current_date, "%Y-%m-%d")
+    except ValueError:
+        return current_date
+    return (current_dt - relativedelta(days=_PREFETCH_STOCK_LOOKBACK_DAYS)).strftime(
+        "%Y-%m-%d"
+    )
+
+
+def _build_prefetched_market_data(ticker: str, current_date: str) -> str:
+    """Fetch core technical data before the LLM runs.
+
+    CLI-based providers do not always emit structured tool calls reliably. This
+    prefetch gives the analyst concrete OHLCV and indicator data even when the
+    model chooses to answer directly.
+    """
+    start_date = _prefetch_start_date(current_date)
+    stock_data = _safe_tool_invoke(
+        get_stock_data,
+        {
+            "symbol": ticker,
+            "start_date": start_date,
+            "end_date": current_date,
+        },
+    )
+    indicator_data = _safe_tool_invoke(
+        get_indicators,
+        {
+            "symbol": ticker,
+            "indicator": ",".join(_PREFETCH_INDICATORS),
+            "curr_date": current_date,
+            "look_back_days": _PREFETCH_INDICATOR_LOOKBACK_DAYS,
+        },
+    )
+
+    message = (
+        "Prefetched A-stock technical data for "
+        f"{ticker} through {current_date}: "
+        f"{len(stock_data)} stock chars, {len(indicator_data)} indicator chars"
+    )
+    logger.info(
+        "%s",
+        message,
+    )
+    print(
+        f"[A-STOCK TECHNICAL PREFETCH] {message}",
+        flush=True,
+    )
+
+    return (
+        "## 已预取的 A 股技术面数据\n"
+        "以下数据已在技术分析师运行前由后台直连工具获取。必须优先使用这些数据；"
+        "如果某段包含 [数据缺失] 或错误信息，请在报告中明确标注对应缺口，"
+        "并可继续调用工具补拉。\n\n"
+        "### K 线与成交量\n"
+        f"{stock_data}\n\n"
+        "### 技术指标\n"
+        f"{indicator_data}"
+    )
+
 
 def create_market_analyst(llm):
 
     def market_analyst_node(state):
         current_date = state["trade_date"]
-        instrument_context = build_instrument_context(state["company_of_interest"])
+        ticker = state["company_of_interest"]
+        instrument_context = build_instrument_context(ticker)
+        prefetched_market_data = _build_prefetched_market_data(ticker, current_date)
 
         tools = [
             get_stock_data,
@@ -59,6 +150,8 @@ MACD 类：
 3. 撰写详细的技术分析报告，包含具体数值和技术信号研判结论（仅供研究参考，不构成投资建议）
 4. 报告末尾附 Markdown 表格汇总关键技术信号和结论
 
+后台已在本轮运行前预取 K 线和关键指标，见下方“已预取的 A 股技术面数据”。如果预取数据完整，可以直接据此撰写报告；如需补充更多指标，再继续调用工具。
+
 📋 必采清单 — 以下数据点必须出现在报告中，无法获取时标注 [数据缺失: xxx]：
 1. 最新收盘价、日期、当日涨跌幅
 2. 近 30 日累计涨跌幅
@@ -79,7 +172,8 @@ MACD 类：
                     " If you or any other assistant has the FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** or deliverable,"
                     " prefix your response with FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL** so the team knows to stop."
                     " You have access to the following tools: {tool_names}.\n{system_message}"
-                    "For your reference, the current date is {current_date}. {instrument_context}",
+                    "For your reference, the current date is {current_date}. {instrument_context}"
+                    "\n\n{prefetched_market_data}",
                 ),
                 MessagesPlaceholder(variable_name="messages"),
             ]
@@ -89,6 +183,7 @@ MACD 类：
         prompt = prompt.partial(tool_names=", ".join([tool.name for tool in tools]))
         prompt = prompt.partial(current_date=current_date)
         prompt = prompt.partial(instrument_context=instrument_context)
+        prompt = prompt.partial(prefetched_market_data=prefetched_market_data)
 
         chain = prompt | llm.bind_tools(tools)
 
