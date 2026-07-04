@@ -26,6 +26,8 @@ from rich.rule import Rule
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
 from tradingagents.default_config import DEFAULT_CONFIG
+from tradingagents.agents.utils.agent_utils import build_position_context
+from tradingagents.dataflows.utils import safe_ticker_component
 from cli.models import AnalystType
 from cli.utils import *
 from cli.announcements import fetch_announcements, display_announcements
@@ -529,10 +531,20 @@ def get_user_selections():
     )
     output_language = ask_output_language()
 
-    # Step 4: Select analysts
+    # Step 4: Average cost basis for an existing position (optional)
     console.print(
         create_question_box(
-            "Step 4: Analysts Team", "Select your LLM analyst agents for the analysis"
+            "Step 4: Your Position (optional)",
+            "Enter your average cost per share/unit so the decision weighs "
+            "your unrealized P/L; press Enter to skip",
+        )
+    )
+    average_cost = get_average_cost()
+
+    # Step 5: Select analysts
+    console.print(
+        create_question_box(
+            "Step 5: Analysts Team", "Select your LLM analyst agents for the analysis"
         )
     )
     selected_analysts = select_analysts()
@@ -540,26 +552,26 @@ def get_user_selections():
         f"[green]Selected analysts:[/green] {', '.join(analyst.value for analyst in selected_analysts)}"
     )
 
-    # Step 5: Research depth
+    # Step 6: Research depth
     console.print(
         create_question_box(
-            "Step 5: Research Depth", "Select your research depth level"
+            "Step 6: Research Depth", "Select your research depth level"
         )
     )
     selected_research_depth = select_research_depth()
 
-    # Step 6: LLM Provider
+    # Step 7: LLM Provider
     console.print(
         create_question_box(
-            "Step 6: LLM Provider", "Select your LLM provider"
+            "Step 7: LLM Provider", "Select your LLM provider"
         )
     )
     selected_llm_provider, backend_url = select_llm_provider()
 
-    # Step 7: Thinking agents
+    # Step 8: Thinking agents
     console.print(
         create_question_box(
-            "Step 7: Thinking Agents", "Select your thinking agents for analysis"
+            "Step 8: Thinking Agents", "Select your thinking agents for analysis"
         )
     )
     selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
@@ -574,7 +586,7 @@ def get_user_selections():
     if provider_lower == "google":
         console.print(
             create_question_box(
-                "Step 8: Thinking Mode",
+                "Step 9: Thinking Mode",
                 "Configure Gemini thinking mode"
             )
         )
@@ -582,7 +594,7 @@ def get_user_selections():
     elif provider_lower == "openai":
         console.print(
             create_question_box(
-                "Step 8: Reasoning Effort",
+                "Step 9: Reasoning Effort",
                 "Configure OpenAI reasoning effort level"
             )
         )
@@ -590,7 +602,7 @@ def get_user_selections():
     elif provider_lower == "codex-cli":
         console.print(
             create_question_box(
-                "Step 8: Reasoning Effort",
+                "Step 9: Reasoning Effort",
                 "Configure Codex CLI reasoning effort level"
             )
         )
@@ -598,7 +610,7 @@ def get_user_selections():
     elif provider_lower == "anthropic":
         console.print(
             create_question_box(
-                "Step 8: Effort Level",
+                "Step 9: Effort Level",
                 "Configure Claude effort level"
             )
         )
@@ -607,6 +619,7 @@ def get_user_selections():
     return {
         "ticker": selected_ticker,
         "analysis_date": analysis_date,
+        "average_cost": average_cost,
         "analysts": selected_analysts,
         "research_depth": selected_research_depth,
         "llm_provider": selected_llm_provider.lower(),
@@ -655,6 +668,23 @@ def get_analysis_date():
             console.print(
                 "[red]Error: Invalid date format. Please use YYYY-MM-DD[/red]"
             )
+
+
+def get_average_cost() -> float | None:
+    """Get the user's average cost basis from input; blank skips."""
+    while True:
+        raw = typer.prompt("", default="", show_default=False).strip()
+        if not raw:
+            return None
+        try:
+            value = float(raw)
+        except ValueError:
+            console.print("[red]Error: Enter a number (e.g. 123.45) or press Enter to skip[/red]")
+            continue
+        if value <= 0:
+            console.print("[red]Error: Average cost must be positive[/red]")
+            continue
+        return value
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
@@ -1066,9 +1096,16 @@ def run_analysis(checkpoint: bool = False):
         )
         update_display(layout, spinner_text, stats_handler=stats_handler, start_time=start_time)
 
-        # Initialize state and get graph args with callbacks
+        # Initialize state and get graph args with callbacks. The CLI streams
+        # directly, so mirror propagate()'s pre-run memory handling here.
+        past_context = graph.prepare_run(selections["ticker"])
         init_agent_state = graph.propagator.create_initial_state(
-            selections["ticker"], selections["analysis_date"]
+            selections["ticker"],
+            selections["analysis_date"],
+            past_context=past_context,
+            position_context=build_position_context(
+                selections["ticker"], selections["average_cost"]
+            ),
         )
         # Pass callbacks to graph config for tool execution tracking
         # (LLM tracking is handled separately via LLM constructor)
@@ -1179,6 +1216,13 @@ def run_analysis(checkpoint: bool = False):
         final_state = trace[-1]
         decision = graph.process_signal(final_state["final_trade_decision"])
 
+        # Persist the run the same way propagate() does: JSON state log under
+        # results_dir plus a pending memory-log entry for future reflection.
+        if final_state.get("final_trade_decision"):
+            graph.finalize_run(
+                selections["ticker"], selections["analysis_date"], final_state
+            )
+
         # Update all agent statuses to completed
         for agent in message_buffer.agent_status:
             message_buffer.update_agent_status(agent, "completed")
@@ -1196,6 +1240,16 @@ def run_analysis(checkpoint: bool = False):
 
     # Post-analysis prompts (outside Live context for clean interaction)
     console.print("\n[bold cyan]Analysis Complete![/bold cyan]\n")
+    if final_state.get("final_trade_decision"):
+        state_log_path = (
+            Path(config["results_dir"])
+            / safe_ticker_component(selections["ticker"])
+            / "TradingAgentsStrategy_logs"
+            / f"full_states_log_{selections['analysis_date']}.json"
+        )
+        console.print(f"[dim]State log: {state_log_path}[/dim]")
+        if config.get("memory_log_path"):
+            console.print(f"[dim]Memory log: {config['memory_log_path']}[/dim]")
 
     # Prompt to save report
     save_choice = typer.prompt("Save report?", default="Y").strip().upper()

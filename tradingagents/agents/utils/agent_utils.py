@@ -52,6 +52,20 @@ def build_instrument_context(ticker: str) -> str:
         "preserving any exchange suffix (e.g. `.TO`, `.L`, `.HK`, `.T`)."
     )
 
+
+def build_position_context(ticker: str, avg_cost: float | None) -> str:
+    """Describe the user's existing position so decisions weigh their cost basis."""
+    if avg_cost is None:
+        return ""
+    return (
+        f"USER POSITION: The user holds an existing position in `{ticker}` "
+        f"with an average cost basis of {avg_cost:g} per share/unit "
+        "(in the instrument's trading currency). Compare the current price "
+        "against this cost basis and factor the unrealized profit or loss "
+        "into the recommendation (e.g. whether to add, hold, trim, or exit)."
+    )
+
+
 def create_msg_delete():
     def delete_messages(state):
         """Clear messages and add placeholder for Anthropic compatibility"""

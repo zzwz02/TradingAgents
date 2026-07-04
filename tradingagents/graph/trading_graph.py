@@ -28,6 +28,7 @@ from tradingagents.dataflows.config import set_config
 
 # Import the new abstract tool methods from agent_utils
 from tradingagents.agents.utils.agent_utils import (
+    build_position_context,
     get_stock_data,
     get_indicators,
     get_fundamentals,
@@ -315,20 +316,44 @@ class TradingAgentsGraph:
         if updates:
             self.memory_log.batch_update_with_outcomes(updates)
 
-    def propagate(self, company_name, trade_date):
+    def prepare_run(self, company_name: str) -> str:
+        """Resolve pending memory-log entries and return past context."""
+        self.ticker = company_name
+        self._resolve_pending_entries(company_name)
+        return self.memory_log.get_past_context(company_name)
+
+    def finalize_run(self, company_name, trade_date, final_state) -> None:
+        """Persist a completed run without touching checkpoint lifecycle."""
+        self.ticker = company_name
+        self.curr_state = final_state
+
+        # Log state to disk.
+        self._log_state(trade_date, final_state)
+
+        # Store decision for deferred reflection on the next same-ticker run.
+        self.memory_log.store_decision(
+            ticker=company_name,
+            trade_date=trade_date,
+            final_trade_decision=final_state["final_trade_decision"],
+        )
+
+    def propagate(self, company_name, trade_date, avg_cost: float | None = None):
         """Run the trading agents graph for a company on a specific date.
 
         When ``checkpoint_enabled`` is set in config, the graph is recompiled
         with a per-ticker SqliteSaver so a crashed run can resume from the last
         successful node on a subsequent invocation with the same ticker+date.
+        ``avg_cost`` is the user's average cost basis for an existing position;
+        when given it is injected into the trader and portfolio-manager prompts.
         """
-        return self._run_graph(company_name, trade_date)
+        return self._run_graph(company_name, trade_date, avg_cost=avg_cost)
 
     def prepare_graph_run(
         self,
         company_name,
         trade_date,
         callbacks: Optional[List] = None,
+        avg_cost: float | None = None,
     ) -> Tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[int]]:
         """Prepare graph input/args for a fresh or resumed run.
 
@@ -336,10 +361,8 @@ class TradingAgentsGraph:
         already exists, ``initial_state`` is ``None`` so LangGraph resumes the
         existing thread instead of replaying completed nodes.
         """
-        self.ticker = company_name
-
         # Resolve any pending memory-log entries for this ticker before the pipeline runs.
-        self._resolve_pending_entries(company_name)
+        past_context = self.prepare_run(company_name)
 
         checkpoint_enabled = self.config.get("checkpoint_enabled")
         resume_step = None
@@ -377,25 +400,17 @@ class TradingAgentsGraph:
 
         # Initialize state only for fresh runs. Passing a new initial state to
         # LangGraph would start a new run and replay completed nodes.
-        past_context = self.memory_log.get_past_context(company_name)
         init_agent_state = self.propagator.create_initial_state(
-            company_name, trade_date, past_context=past_context
+            company_name,
+            trade_date,
+            past_context=past_context,
+            position_context=build_position_context(company_name, avg_cost),
         )
         return init_agent_state, args, resume_step
 
     def finalize_graph_run(self, company_name, trade_date, final_state):
         """Persist a completed run and clear its checkpoint."""
-        self.curr_state = final_state
-
-        # Log state to disk.
-        self._log_state(trade_date, final_state)
-
-        # Store decision for deferred reflection on the next same-ticker run.
-        self.memory_log.store_decision(
-            ticker=company_name,
-            trade_date=trade_date,
-            final_trade_decision=final_state["final_trade_decision"],
-        )
+        self.finalize_run(company_name, trade_date, final_state)
 
         # Clear checkpoint on successful completion to avoid stale state.
         if self.config.get("checkpoint_enabled"):
@@ -412,9 +427,11 @@ class TradingAgentsGraph:
             self._checkpointer_ctx = None
             self.graph = self.workflow.compile()
 
-    def _run_graph(self, company_name, trade_date):
+    def _run_graph(self, company_name, trade_date, avg_cost: float | None = None):
         """Execute the graph and write the resulting state to disk and memory log."""
-        init_agent_state, args, _ = self.prepare_graph_run(company_name, trade_date)
+        init_agent_state, args, _ = self.prepare_graph_run(
+            company_name, trade_date, avg_cost=avg_cost
+        )
 
         try:
             if self.debug:
@@ -439,6 +456,7 @@ class TradingAgentsGraph:
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
             "trade_date": final_state["trade_date"],
+            "position_context": final_state.get("position_context", ""),
             "market_report": final_state["market_report"],
             "sentiment_report": final_state["sentiment_report"],
             "news_report": final_state["news_report"],

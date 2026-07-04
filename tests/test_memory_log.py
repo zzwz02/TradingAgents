@@ -773,6 +773,9 @@ class TestLegacyRemoval:
         mock_graph.finalize_graph_run = functools.partial(
             TradingAgentsGraph.finalize_graph_run, mock_graph
         )
+        mock_graph.finalize_run = functools.partial(
+            TradingAgentsGraph.finalize_run, mock_graph
+        )
         mock_graph.close_graph_run = functools.partial(
             TradingAgentsGraph.close_graph_run, mock_graph
         )

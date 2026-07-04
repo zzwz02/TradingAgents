@@ -204,6 +204,8 @@ ANTHROPIC_API_KEY=sk-ant-xxx
 ANTHROPIC_AUTH_TOKEN=your-kimi-token
 ```
 
+CLI 运行时可以选择性输入已有持仓的平均成本；填写后 Trader 和 Portfolio Manager 会把未实现盈亏纳入最终决策。CLI 完成分析后也会写入与 API 路径一致的完整 JSON 状态日志（`<results_dir>/<ticker>/TradingAgentsStrategy_logs/full_states_log_<date>.json`）和 memory log 决策条目。
+
 ### 3. 运行分析
 
 根据你选择的供应商修改 config：

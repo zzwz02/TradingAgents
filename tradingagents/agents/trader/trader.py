@@ -21,6 +21,8 @@ def create_trader(llm):
         company_name = state["company_of_interest"]
         instrument_context = build_instrument_context(company_name)
         investment_plan = state["investment_plan"]
+        position_context = state.get("position_context", "")
+        position_block = f"{position_context}\n\n" if position_context else ""
 
         # Collect A-stock specific analyst reports
         policy_report = state.get("policy_report", "")
@@ -60,6 +62,7 @@ def create_trader(llm):
                     f"sentiment, news, fundamentals, policy, capital flow, and lockup/reduction "
                     f"specialists), here is an investment plan for {company_name}.\n\n"
                     f"{instrument_context}\n\n"
+                    f"{position_block}"
                     f"Proposed Investment Plan:\n{investment_plan}\n\n"
                     + (f"Additional A-Stock Analyst Context:\n{astock_context}\n\n" if astock_context else "")
                     + "Leverage these insights to craft a precise transaction proposal."
