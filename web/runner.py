@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 import threading
 import traceback
@@ -14,10 +15,36 @@ from web.stock_display import normalize_report_state_mentions, normalize_stock_m
 
 _REPORT_KEY_TO_STAGE = {s["report_key"]: s["id"] for s in PIPELINE_STAGES}
 
+logger = logging.getLogger(__name__)
+
+_ASTOCK_PIPELINE_CONFIRMATION = (
+    "[A-STOCK PIPELINE] 已启用 A 股分析流程 | "
+    "数据源=mootdx + 东财 + 新浪 + 同花顺（全免费直连） | "
+    "Analyst=7 个（技术/情绪/新闻/基本面 + 政策分析师/游资追踪/解禁监控） | "
+    "交易规则=T+1、涨跌停、最小手数、交易时段"
+)
+
 _ANALYST_REPORT_KEYS = [
     "market_report", "sentiment_report", "news_report",
     "fundamentals_report", "policy_report", "hot_money_report", "lockup_report",
 ]
+
+
+def _log_astock_pipeline_confirmation(
+    ticker: str,
+    trade_date: str,
+    config: dict,
+) -> None:
+    """Print a backend-visible confirmation for every Web-started A-stock run."""
+    message = (
+        f"{_ASTOCK_PIPELINE_CONFIRMATION} | "
+        f"ticker={ticker} | trade_date={trade_date} | "
+        f"llm_provider={config.get('llm_provider')} | "
+        f"quick_model={config.get('quick_think_llm')} | "
+        f"deep_model={config.get('deep_think_llm')}"
+    )
+    logger.info(message)
+    print(message, flush=True)
 
 
 def _discard_stopped_run(
@@ -93,6 +120,7 @@ def _run(ticker: str, trade_date: str, config: dict, tracker: ProgressTracker) -
     from tradingagents.graph.trading_graph import TradingAgentsGraph
 
     stats = StatsCallbackHandler()
+    _log_astock_pipeline_confirmation(ticker, trade_date, config)
 
     graph = TradingAgentsGraph(
         debug=True,

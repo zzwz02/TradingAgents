@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from html import escape
+
 import streamlit as st
 
 from web.progress import PIPELINE_STAGES, ProgressTracker
+from web.stock_display import stock_display_label
 
 
 def _status_badge(status: str) -> str:
@@ -20,8 +23,15 @@ def _format_time(seconds: float) -> str:
     return f"{m}:{s:02d}"
 
 
+def _progress_ticker_label(tracker: ProgressTracker) -> str:
+    """Return the resolved label shown while an analysis is running."""
+    return tracker.ticker_label or stock_display_label(tracker.ticker, tracker.final_state)
+
+
 def render_progress(tracker: ProgressTracker) -> None:
     """Render the pipeline progress panel."""
+
+    ticker_label = escape(_progress_ticker_label(tracker))
 
     st.markdown(
         f"""
@@ -30,7 +40,7 @@ def render_progress(tracker: ProgressTracker) -> None:
                 分析进行中
             </span>
             <span style="font-size:1.1rem; color:#888; margin-left:0.8rem;">
-                {tracker.ticker}
+                标的：{ticker_label}
             </span>
         </div>
         """,

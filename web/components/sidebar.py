@@ -15,9 +15,12 @@ from web.history import (
     get_incomplete_history,
     record_incomplete_task,
 )
+from web.stock_display import stock_display_label
 
 # Provider display names in recommended order
 _PROVIDERS: list[tuple[str, str]] = [
+    ("Codex CLI（默认·ChatGPT 订阅）", "codex-cli"),
+    ("Claude Code（Claude 订阅）", "claude-code"),
     ("MiniMax（推荐·国内直连）", "minimax"),
     ("DeepSeek", "deepseek"),
     ("通义千问 Qwen", "qwen"),
@@ -52,6 +55,11 @@ def _resolve_user_input(raw: str) -> tuple[str, str | None]:
 def _clear_analysis_artifacts(ticker: str, trade_date: str) -> None:
     clear_incomplete_task(ticker, trade_date)
     clear_checkpoint(DEFAULT_CONFIG["data_cache_dir"], ticker, trade_date)
+
+
+def _display_ticker_label(ticker: str, raw_input: str = "") -> str:
+    state = {"stock_input": raw_input.strip()} if raw_input.strip() else None
+    return stock_display_label(ticker, state)
 
 
 def _render_analysis_controls(raw_ticker: str, trade_date_value: date) -> None:
@@ -133,12 +141,19 @@ def _render_analysis_controls(raw_ticker: str, trade_date_value: date) -> None:
 def _render_llm_config() -> None:
     """Render LLM provider and model selection controls."""
 
+    default_provider = str(DEFAULT_CONFIG.get("llm_provider", "codex-cli")).lower()
+    default_provider_idx = (
+        _PROVIDER_KEYS.index(default_provider)
+        if default_provider in _PROVIDER_KEYS
+        else 0
+    )
     provider_idx = st.selectbox(
         "LLM 供应商",
         range(len(_PROVIDERS)),
         format_func=lambda i: _PROVIDER_DISPLAY[i],
+        index=default_provider_idx,
         key="llm_provider_idx",
-        help="选择你配置了 API Key 的供应商",
+        help="Codex CLI / Claude Code 走本机订阅登录态；API 供应商读取各自 API Key",
     )
     provider_key = _PROVIDER_KEYS[provider_idx]
     st.session_state["llm_provider"] = provider_key
@@ -180,7 +195,8 @@ def _render_llm_config() -> None:
         key="llm_base_url",
         placeholder="例: https://your-proxy.com/v1",
         help=(
-            "通过第三方中转/代理访问 Claude、OpenAI 等模型时填写网关地址；"
+            "Codex CLI / Claude Code 不需要填写 API Base URL。"
+            "通过第三方中转/代理访问 Claude、OpenAI 等 API 模型时填写网关地址；"
             "留空则用所选供应商的官方地址。API Key 仍从 .env 读取，"
             "且每个供应商用各自的环境变量——"
             "OpenAI=OPENAI_API_KEY、DeepSeek=DEEPSEEK_API_KEY、"
@@ -242,10 +258,14 @@ def render_sidebar() -> None:
         if err:
             st.error(f"❌ {err}")
         else:
+            ticker_label = _display_ticker_label(resolved_code, ticker)
             if resolved_code != ticker.strip():
-                st.success(f"✅ {ticker.strip()} → {resolved_code}")
+                st.success(f"✅ {ticker.strip()} → {ticker_label}")
+            else:
+                st.success(f"✅ 本次分析标的：{ticker_label}")
             st.session_state["start_analysis"] = {
                 "ticker": resolved_code,
+                "ticker_label": ticker_label,
                 "trade_date": trade_date.strftime("%Y-%m-%d"),
                 "fresh": True,
             }
@@ -262,6 +282,7 @@ def render_sidebar() -> None:
     else:
         for entry in incomplete[:10]:
             t, d = entry["ticker"], entry["trade_date"]
+            ticker_label = _display_ticker_label(t)
             status_label = {
                 "error": "出错",
                 "paused": "已暂停",
@@ -269,7 +290,7 @@ def render_sidebar() -> None:
             }.get(entry.get("status"), "可继续")
             step = entry.get("checkpoint_step")
             step_label = f" · step {step}" if step is not None else ""
-            label = f"{t}  ·  {d}  ·  {status_label}{step_label}"
+            label = f"{ticker_label}  ·  {d}  ·  {status_label}{step_label}"
             if st.button(
                 label,
                 key=f"resume_{t}_{d}",
@@ -278,6 +299,7 @@ def render_sidebar() -> None:
             ):
                 st.session_state["start_analysis"] = {
                     "ticker": t,
+                    "ticker_label": ticker_label,
                     "trade_date": d,
                 }
                 st.session_state["viewing_history"] = None
@@ -292,7 +314,8 @@ def render_sidebar() -> None:
 
     for entry in history[:20]:
         t, d = entry["ticker"], entry["date"]
-        label = f"{t}  ·  {d}"
+        ticker_label = _display_ticker_label(t)
+        label = f"{ticker_label}  ·  {d}"
         if st.button(label, key=f"hist_{t}_{d}", use_container_width=True):
             st.session_state["viewing_history"] = entry["path"]
             st.session_state["start_analysis"] = None

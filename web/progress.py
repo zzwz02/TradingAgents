@@ -31,6 +31,7 @@ class ProgressTracker:
     """Mutable state container updated by the runner thread, read by the UI."""
 
     ticker: str = ""
+    ticker_label: str = ""
     trade_date: str = ""
     start_time: float = field(default_factory=time.time)
 

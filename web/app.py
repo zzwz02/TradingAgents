@@ -158,9 +158,35 @@ st.markdown(
 
 def _build_config() -> dict:
     config = DEFAULT_CONFIG.copy()
-    config["llm_provider"] = st.session_state.get("llm_provider", "minimax")
-    config["deep_think_llm"] = st.session_state.get("deep_think_llm", "MiniMax-M2.7")
-    config["quick_think_llm"] = st.session_state.get("quick_think_llm", "MiniMax-M2.7-highspeed")
+    config["llm_provider"] = st.session_state.get(
+        "llm_provider", DEFAULT_CONFIG["llm_provider"]
+    )
+    config["deep_think_llm"] = st.session_state.get(
+        "deep_think_llm", DEFAULT_CONFIG["deep_think_llm"]
+    )
+    config["quick_think_llm"] = st.session_state.get(
+        "quick_think_llm", DEFAULT_CONFIG["quick_think_llm"]
+    )
+    provider = str(config["llm_provider"]).lower()
+    if provider == "codex-cli":
+        config["openai_reasoning_effort"] = (
+            config.get("openai_reasoning_effort") or "xhigh"
+        )
+        config["anthropic_effort"] = None
+    elif provider == "claude-code":
+        config["anthropic_effort"] = config.get("anthropic_effort") or "xhigh"
+        config["openai_reasoning_effort"] = None
+    elif provider == "openai":
+        config["openai_reasoning_effort"] = (
+            os.getenv("TRADINGAGENTS_OPENAI_REASONING_EFFORT") or None
+        )
+        config["anthropic_effort"] = None
+    elif provider == "anthropic":
+        config["openai_reasoning_effort"] = None
+        config["anthropic_effort"] = os.getenv("TRADINGAGENTS_ANTHROPIC_EFFORT") or None
+    else:
+        config["openai_reasoning_effort"] = None
+        config["anthropic_effort"] = None
     # Optional third-party / proxy endpoint. Sidebar input wins, else .env BACKEND_URL.
     backend_url = (st.session_state.get("llm_base_url") or os.getenv("BACKEND_URL") or "").strip()
     config["backend_url"] = backend_url or None
@@ -200,6 +226,7 @@ if start_req:
 
     tracker = ProgressTracker(
         ticker=start_req["ticker"],
+        ticker_label=start_req.get("ticker_label", ""),
         trade_date=start_req["trade_date"],
     )
     st.session_state["tracker"] = tracker

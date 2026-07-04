@@ -123,3 +123,33 @@ def test_normalize_report_state_mentions_updates_generated_fields(monkeypatch):
     assert state["investment_debate_state"]["bull_history"] == "看多 600370 *ST三房"
     assert state["investment_debate_state"]["round"] == 1
     assert state["risk_debate_state"]["judge_decision"] == "600370 *ST三房 风险偏高"
+
+
+def test_progress_ticker_label_prefers_resolved_tracker_label(monkeypatch):
+    from web.components import progress_panel
+    from web.progress import ProgressTracker
+
+    monkeypatch.setattr(
+        progress_panel,
+        "stock_display_label",
+        lambda ticker, final_state=None: "SHOULD NOT BE USED",
+    )
+
+    tracker = ProgressTracker(ticker="000001", ticker_label="000001 平安银行")
+
+    assert progress_panel._progress_ticker_label(tracker) == "000001 平安银行"
+
+
+def test_progress_ticker_label_resolves_when_tracker_label_missing(monkeypatch):
+    from web.components import progress_panel
+    from web.progress import ProgressTracker
+
+    monkeypatch.setattr(
+        progress_panel,
+        "stock_display_label",
+        lambda ticker, final_state=None: "000001 平安银行",
+    )
+
+    tracker = ProgressTracker(ticker="000001")
+
+    assert progress_panel._progress_ticker_label(tracker) == "000001 平安银行"
