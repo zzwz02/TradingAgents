@@ -22,6 +22,7 @@ class Propagator:
         asset_type: str = "stock",
         past_context: str = "",
         instrument_context: str = "",
+        position_context: str = "",
     ) -> dict[str, Any]:
         """Create the initial state for the agent graph.
 
@@ -29,7 +30,9 @@ class Propagator:
         resolved once at run start (see
         ``TradingAgentsGraph.resolve_instrument_context``). When empty, agents
         fall back to ticker-only context via
-        ``get_instrument_context_from_state``.
+        ``get_instrument_context_from_state``. ``position_context`` describes
+        the user's existing position (average cost basis) when provided (see
+        ``build_position_context``); empty means a fresh-entry analysis.
         """
         return {
             "messages": [("human", company_name)],
@@ -38,6 +41,7 @@ class Propagator:
             "instrument_context": instrument_context,
             "trade_date": str(trade_date),
             "past_context": past_context,
+            "position_context": position_context,
             "investment_debate_state": InvestDebateState(
                 {
                     "bull_history": "",

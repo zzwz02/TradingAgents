@@ -26,7 +26,6 @@ from cli.utils import (
     ask_glm_region,
     ask_minimax_region,
     ask_openai_reasoning_effort,
-    ask_output_language,
     ask_qwen_region,
     confirm_ollama_endpoint,
     detect_asset_type,
@@ -40,6 +39,8 @@ from cli.utils import (
     select_research_depth,
     select_shallow_thinking_agent,
 )
+from tradingagents.agents.utils.agent_utils import build_position_context
+from tradingagents.dataflows.utils import safe_ticker_component
 from tradingagents.default_config import DEFAULT_CONFIG
 from tradingagents.graph.analyst_execution import (
     AnalystWallTimeTracker,
@@ -560,20 +561,23 @@ def get_user_selections():
     )
     analysis_date = get_analysis_date()
 
-    # Step 3: Output language (skipped when set via TRADINGAGENTS_OUTPUT_LANGUAGE)
+    # Output language: always English (no prompt). An explicit
+    # TRADINGAGENTS_OUTPUT_LANGUAGE env var still wins for users who set it.
+    output_language = DEFAULT_CONFIG["output_language"]
     if os.environ.get("TRADINGAGENTS_OUTPUT_LANGUAGE"):
-        output_language = DEFAULT_CONFIG["output_language"]
         console.print(
             f"[green]✓ Output language from environment:[/green] {output_language}"
         )
-    else:
-        console.print(
-            create_question_box(
-                "Step 3: Output Language",
-                "Select the language for analyst reports and final decision"
-            )
+
+    # Step 3: Average cost basis for an existing position (optional)
+    console.print(
+        create_question_box(
+            "Step 3: Your Position (optional)",
+            "Enter your average cost per share/unit so the decision weighs "
+            "your unrealized P/L; press Enter to skip",
         )
-        output_language = ask_output_language()
+    )
+    average_cost = get_average_cost()
 
     # Step 4: Select analysts
     console.print(
@@ -722,6 +726,7 @@ def get_user_selections():
         "ticker": selected_ticker,
         "asset_type": asset_type.value,
         "analysis_date": analysis_date,
+        "average_cost": average_cost,
         "analysts": selected_analysts,
         "research_depth": selected_research_depth,
         "llm_provider": selected_llm_provider.lower(),
@@ -752,6 +757,23 @@ def get_analysis_date():
             console.print(
                 "[red]Error: Invalid date format. Please use YYYY-MM-DD[/red]"
             )
+
+
+def get_average_cost() -> float | None:
+    """Get the user's average cost basis from input; blank skips."""
+    while True:
+        raw = typer.prompt("", default="", show_default=False).strip()
+        if not raw:
+            return None
+        try:
+            value = float(raw)
+        except ValueError:
+            console.print("[red]Error: Enter a number (e.g. 123.45) or press Enter to skip[/red]")
+            continue
+        if value <= 0:
+            console.print("[red]Error: Average cost must be positive[/red]")
+            continue
+        return value
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
@@ -1108,6 +1130,9 @@ def run_analysis(checkpoint: bool | None = None):
         # Resolve the instrument identity once here so all agents anchor to
         # the real company (#814); the CLI builds state directly rather than
         # going through propagate(), so this must happen on the CLI path too.
+        # prepare_run() mirrors propagate(): it resolves pending memory-log
+        # entries for this ticker and returns past context for injection.
+        past_context = graph.prepare_run(selections["ticker"])
         instrument_context = graph.resolve_instrument_context(
             selections["ticker"], selections["asset_type"]
         )
@@ -1115,7 +1140,11 @@ def run_analysis(checkpoint: bool | None = None):
             selections["ticker"],
             selections["analysis_date"],
             asset_type=selections["asset_type"],
+            past_context=past_context,
             instrument_context=instrument_context,
+            position_context=build_position_context(
+                selections["ticker"], selections["average_cost"]
+            ),
         )
         # Pass callbacks to graph config for tool execution tracking
         # (LLM tracking is handled separately via LLM constructor)
@@ -1231,6 +1260,13 @@ def run_analysis(checkpoint: bool | None = None):
         for chunk in trace:
             final_state.update(chunk)
 
+        # Persist the run the same way propagate() does: JSON state log under
+        # results_dir plus a pending memory-log entry for future reflection.
+        if final_state.get("final_trade_decision"):
+            graph.finalize_run(
+                selections["ticker"], selections["analysis_date"], final_state
+            )
+
         # Update all agent statuses to completed
         for agent in message_buffer.agent_status:
             message_buffer.update_agent_status(agent, "completed")
@@ -1250,6 +1286,16 @@ def run_analysis(checkpoint: bool | None = None):
     # Post-analysis prompts (outside Live context for clean interaction)
     console.print("\n[bold cyan]Analysis Complete![/bold cyan]\n")
     console.print(f"[dim]{analyst_wall_time_tracker.format_summary()}[/dim]")
+    if final_state.get("final_trade_decision"):
+        state_log_path = (
+            Path(config["results_dir"])
+            / safe_ticker_component(selections["ticker"])
+            / "TradingAgentsStrategy_logs"
+            / f"full_states_log_{selections['analysis_date']}.json"
+        )
+        console.print(f"[dim]State log: {state_log_path}[/dim]")
+        if config.get("memory_log_path"):
+            console.print(f"[dim]Memory log: {config['memory_log_path']}[/dim]")
 
     # Prompt to save report
     save_choice = typer.prompt("Save report?", default="Y").strip().upper()

@@ -183,7 +183,11 @@ Launch the interactive CLI:
 tradingagents          # installed command
 python -m cli.main     # alternative: run directly from source
 ```
-You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more.
+You will see a screen where you can select your desired tickers, analysis date, LLM provider, research depth, and more. You can optionally enter your average cost basis for an existing position; when provided, the trader and portfolio manager weigh your unrealized P/L in the final decision, and it is recorded in the JSON state log for later analysis.
+
+Reports are always generated in English. To force another language, set `TRADINGAGENTS_OUTPUT_LANGUAGE` (e.g. `Chinese`).
+
+A completed CLI run persists the same artifacts as the programmatic API: the markdown report tree, the full JSON state log (`<results_dir>/<ticker>/TradingAgentsStrategy_logs/full_states_log_<date>.json`), and a decision entry in the memory log (see [Decision log](#decision-log)).
 
 ### Markets and tickers
 

@@ -13,6 +13,7 @@ from langgraph.prebuilt import ToolNode
 # Import the abstract tool methods from agent_utils
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
+    build_position_context,
     get_balance_sheet,
     get_cashflow,
     get_fundamentals,
@@ -335,20 +336,57 @@ class TradingAgentsGraph:
         identity = resolve_instrument_identity(ticker)
         return build_instrument_context(ticker, asset_type, identity)
 
-    def propagate(self, company_name, trade_date, asset_type: str = "stock"):
+    def prepare_run(self, company_name: str) -> str:
+        """Resolve pending memory-log entries and return the past context string.
+
+        Shared pre-run step for propagate() and the CLI streaming path, so both
+        entry points resolve prior outcomes and inject the same memory context.
+        """
+        self.ticker = company_name
+        self._resolve_pending_entries(company_name)
+        return self.memory_log.get_past_context(company_name)
+
+    def finalize_run(self, company_name, trade_date, final_state) -> None:
+        """Persist a completed run: JSON state log + pending memory-log entry.
+
+        Shared post-run step for propagate() and the CLI streaming path, so
+        both entry points produce the same ``full_states_log_<date>.json`` and
+        memory-log decision entry.
+        """
+        self.ticker = company_name
+        self.curr_state = final_state
+
+        # Log state to disk.
+        self._log_state(trade_date, final_state)
+
+        # Store decision for deferred reflection on the next same-ticker run.
+        self.memory_log.store_decision(
+            ticker=company_name,
+            trade_date=trade_date,
+            final_trade_decision=final_state["final_trade_decision"],
+        )
+
+    def propagate(
+        self,
+        company_name,
+        trade_date,
+        asset_type: str = "stock",
+        avg_cost: float | None = None,
+    ):
         """Run the trading agents graph for a company on a specific date.
 
         ``asset_type`` selects between the stock pipeline (default) and the
         crypto pipeline (``"crypto"``) shipped in #567 — the CLI auto-detects
-        from the ticker; programmatic callers pass it explicitly. When
-        ``checkpoint_enabled`` is set in config, the graph is recompiled with
-        a per-ticker SqliteSaver so a crashed run can resume from the last
-        successful node on a subsequent invocation with the same ticker+date.
+        from the ticker; programmatic callers pass it explicitly. ``avg_cost``
+        is the user's average cost basis for an existing position; when given
+        it is injected into the trader and portfolio-manager prompts so the
+        decision weighs the user's unrealized P/L. When ``checkpoint_enabled``
+        is set in config, the graph is recompiled with a per-ticker
+        SqliteSaver so a crashed run can resume from the last successful node
+        on a subsequent invocation with the same ticker+date.
         """
-        self.ticker = company_name
-
         # Resolve any pending memory-log entries for this ticker before the pipeline runs.
-        self._resolve_pending_entries(company_name)
+        self.prepare_run(company_name)
 
         # Recompile with a checkpointer if the user opted in.
         if self.config.get("checkpoint_enabled"):
@@ -369,7 +407,9 @@ class TradingAgentsGraph:
                 logger.info("Starting fresh for %s on %s", company_name, trade_date)
 
         try:
-            return self._run_graph(company_name, trade_date, asset_type=asset_type)
+            return self._run_graph(
+                company_name, trade_date, asset_type=asset_type, avg_cost=avg_cost
+            )
         finally:
             if self._checkpointer_ctx is not None:
                 self._checkpointer_ctx.__exit__(None, None, None)
@@ -391,7 +431,13 @@ class TradingAgentsGraph:
             )
         return write_report_tree(final_state, ticker, save_path)
 
-    def _run_graph(self, company_name, trade_date, asset_type: str = "stock"):
+    def _run_graph(
+        self,
+        company_name,
+        trade_date,
+        asset_type: str = "stock",
+        avg_cost: float | None = None,
+    ):
         """Execute the graph and write the resulting state to disk and memory log."""
         # Initialize state — inject memory log context for PM and the
         # deterministically resolved instrument identity for all agents.
@@ -403,6 +449,7 @@ class TradingAgentsGraph:
             asset_type=asset_type,
             past_context=past_context,
             instrument_context=instrument_context,
+            position_context=build_position_context(company_name, avg_cost),
         )
         args = self.propagator.get_graph_args()
 
@@ -433,18 +480,8 @@ class TradingAgentsGraph:
         else:
             final_state = self.graph.invoke(init_agent_state, **args)
 
-        # Store current state for reflection.
-        self.curr_state = final_state
-
-        # Log state to disk.
-        self._log_state(trade_date, final_state)
-
-        # Store decision for deferred reflection on the next same-ticker run.
-        self.memory_log.store_decision(
-            ticker=company_name,
-            trade_date=trade_date,
-            final_trade_decision=final_state["final_trade_decision"],
-        )
+        # Persist the run (JSON state log + memory-log decision entry).
+        self.finalize_run(company_name, trade_date, final_state)
 
         # Clear checkpoint on successful completion to avoid stale state.
         if self.config.get("checkpoint_enabled"):
@@ -459,6 +496,7 @@ class TradingAgentsGraph:
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
             "trade_date": final_state["trade_date"],
+            "position_context": final_state.get("position_context", ""),
             "market_report": final_state["market_report"],
             "sentiment_report": final_state["sentiment_report"],
             "news_report": final_state["news_report"],

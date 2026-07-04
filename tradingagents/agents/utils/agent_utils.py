@@ -40,6 +40,7 @@ __all__ = [
     "get_prediction_markets",
     "get_verified_market_snapshot",
     "build_instrument_context",
+    "build_position_context",
     "resolve_instrument_identity",
     "get_instrument_context_from_state",
     "get_language_instruction",
@@ -167,6 +168,23 @@ def build_instrument_context(
             "assume company fundamentals are available."
         )
     return context
+
+
+def build_position_context(ticker: str, avg_cost: float | None) -> str:
+    """Describe the user's existing position so decisions weigh their cost basis.
+
+    Returns an empty string when no average cost was provided, in which case
+    the trader and portfolio manager treat the run as a fresh-entry analysis.
+    """
+    if avg_cost is None:
+        return ""
+    return (
+        f"USER POSITION: The user holds an existing position in `{ticker}` "
+        f"with an average cost basis of {avg_cost:g} per share/unit "
+        "(in the instrument's trading currency). Compare the current price "
+        "against this cost basis and factor the unrealized profit or loss "
+        "into the recommendation (e.g. whether to add, hold, trim, or exit)."
+    )
 
 
 def get_instrument_context_from_state(state: Mapping[str, Any]) -> str:
