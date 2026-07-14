@@ -181,12 +181,12 @@ MODEL_OPTIONS: ProviderModeOptions = {
     # stable sonnet/opus/haiku aliases.
     "codex-cli": {
         "quick": [
-            ("GPT-5.5 - recommended (pair with xhigh reasoning)", "gpt-5.5"),
+            ("GPT-5.6 Sol - recommended (pair with max reasoning)", "gpt-5.6-sol"),
             ("Codex default model (per your ChatGPT plan)", "default"),
             ("Custom model ID (passed to codex -m)", "custom"),
         ],
         "deep": [
-            ("GPT-5.5 - recommended (pair with xhigh reasoning)", "gpt-5.5"),
+            ("GPT-5.6 Sol - recommended (pair with max reasoning)", "gpt-5.6-sol"),
             ("Codex default model (per your ChatGPT plan)", "default"),
             ("Custom model ID (passed to codex -m)", "custom"),
         ],

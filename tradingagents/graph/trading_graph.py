@@ -150,7 +150,7 @@ class TradingAgentsGraph:
             # Subscription usage is quota-metered, so default to Codex's
             # maximum reasoning depth unless the user configured otherwise.
             kwargs["reasoning_effort"] = (
-                self.config.get("openai_reasoning_effort") or "xhigh"
+                self.config.get("openai_reasoning_effort") or "max"
             )
             if self.config.get("cli_persistent") is not None:
                 kwargs["cli_persistent"] = self.config["cli_persistent"]

@@ -73,9 +73,9 @@ def _apply_env_overrides(config: dict) -> dict:
 # are left unset, default to the plan's best models at maximum thinking depth.
 _CLI_PROVIDER_DEFAULTS = {
     "codex-cli": {
-        "deep_think_llm": "gpt-5.5",
-        "quick_think_llm": "gpt-5.5",
-        "openai_reasoning_effort": "xhigh",   # Codex max
+        "deep_think_llm": "gpt-5.6-sol",
+        "quick_think_llm": "gpt-5.6-sol",
+        "openai_reasoning_effort": "max",     # Codex maximum thinking depth
     },
     "claude-code": {
         "deep_think_llm": "claude-fable-5",

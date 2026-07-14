@@ -713,7 +713,7 @@ def get_user_selections():
             "TRADINGAGENTS_OPENAI_REASONING_EFFORT", "openai_reasoning_effort",
             "Reasoning effort", "Step 8: Reasoning Effort",
             "Configure Codex reasoning effort level",
-            partial(ask_openai_reasoning_effort, include_xhigh=True),
+            partial(ask_openai_reasoning_effort, include_max=True),
         )
     elif provider_lower == "anthropic":
         anthropic_effort = thinking_value_or_prompt(
