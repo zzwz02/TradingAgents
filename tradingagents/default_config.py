@@ -52,9 +52,9 @@ def _apply_env_overrides(config: dict) -> dict:
 
 _CLI_PROVIDER_DEFAULTS = {
     "codex-cli": {
-        "deep_think_llm": "gpt-5.5",
-        "quick_think_llm": "gpt-5.5",
-        "openai_reasoning_effort": "xhigh",
+        "deep_think_llm": "gpt-5.6-sol",
+        "quick_think_llm": "gpt-5.6-sol",
+        "openai_reasoning_effort": "max",
     },
     "claude-code": {
         "deep_think_llm": "claude-fable-5",

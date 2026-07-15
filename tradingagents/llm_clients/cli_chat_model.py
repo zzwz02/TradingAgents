@@ -93,7 +93,7 @@ class CLIChatModel(BaseChatModel):
     model: str
     backend: Literal["codex", "claude"]
     timeout: float = DEFAULT_TIMEOUT
-    # Thinking depth. Codex: model_reasoning_effort (minimal..xhigh);
+    # Thinking depth. Codex: model_reasoning_effort (minimal..max);
     # Claude Code: --effort (low..max).
     reasoning_effort: str | None = None
     # Accepted for cross-provider config compatibility; the CLIs expose no

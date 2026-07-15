@@ -606,7 +606,7 @@ def get_user_selections():
                 "Configure Codex CLI reasoning effort level"
             )
         )
-        reasoning_effort = ask_openai_reasoning_effort(include_xhigh=True)
+        reasoning_effort = ask_openai_reasoning_effort(include_max=True)
     elif provider_lower == "anthropic":
         console.print(
             create_question_box(

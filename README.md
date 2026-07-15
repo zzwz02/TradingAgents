@@ -160,7 +160,7 @@ pip install -e ".[google]"
 
 ### 2. 配置 LLM
 
-默认使用 **Codex CLI**：`codex-cli / gpt-5.5 / xhigh`。先在本机安装并登录 `codex`，随后可直接运行；如果你更想用 API Key，也可以改用 MiniMax、DeepSeek、通义、智谱、OpenAI、Anthropic 等供应商。
+默认使用 **Codex CLI**：`codex-cli / gpt-5.6-sol / max`。先在本机安装并登录 `codex`，随后可直接运行；如果你更想用 API Key，也可以改用 MiniMax、DeepSeek、通义、智谱、OpenAI、Anthropic 等供应商。
 
 在项目根目录创建 `.env` 文件，按你选择的供应商配置：
 
@@ -169,9 +169,9 @@ pip install -e ".[google]"
 ```bash
 # 默认已是 codex-cli；这些变量只在你需要显式覆盖时填写
 TRADINGAGENTS_LLM_PROVIDER=codex-cli
-TRADINGAGENTS_DEEP_THINK_LLM=gpt-5.5
-TRADINGAGENTS_QUICK_THINK_LLM=gpt-5.5
-TRADINGAGENTS_OPENAI_REASONING_EFFORT=xhigh
+TRADINGAGENTS_DEEP_THINK_LLM=gpt-5.6-sol
+TRADINGAGENTS_QUICK_THINK_LLM=gpt-5.6-sol
+TRADINGAGENTS_OPENAI_REASONING_EFFORT=max
 TRADINGAGENTS_CLI_PERSISTENT=true
 ```
 
@@ -224,9 +224,9 @@ config = {
 # ── Codex CLI 示例（默认）───────────────────────────
 # config = {
 #     "llm_provider": "codex-cli",
-#     "deep_think_llm": "gpt-5.5",
-#     "quick_think_llm": "gpt-5.5",
-#     "openai_reasoning_effort": "xhigh",
+#     "deep_think_llm": "gpt-5.6-sol",
+#     "quick_think_llm": "gpt-5.6-sol",
+#     "openai_reasoning_effort": "max",
 #     "output_language": "Chinese",
 # }
 
@@ -301,9 +301,9 @@ streamlit run web/app.py
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `llm_provider` | `"codex-cli"` | LLM 提供商：`codex-cli` / `claude-code` / `minimax` / `deepseek` / `qwen` / `glm` / `openai` / `anthropic` / `google` / `xai` / `openrouter` / `ollama` |
-| `deep_think_llm` | `"gpt-5.5"` | Research Manager + Portfolio Manager 用的模型 |
-| `quick_think_llm` | `"gpt-5.5"` | 所有 Analyst / Researcher / Trader 用的模型 |
-| `openai_reasoning_effort` | `"xhigh"` | Codex CLI 默认推理强度 |
+| `deep_think_llm` | `"gpt-5.6-sol"` | Research Manager + Portfolio Manager 用的模型 |
+| `quick_think_llm` | `"gpt-5.6-sol"` | 所有 Analyst / Researcher / Trader 用的模型 |
+| `openai_reasoning_effort` | `"max"` | Codex CLI 默认推理强度 |
 | `cli_persistent` | `True` | Codex CLI 默认复用持久 `codex mcp-server` |
 | `backend_url` | `None` | 自定义 API 端点 / 第三方中转网关。可在 Web UI 侧边栏填写，或用 `.env` 的 `BACKEND_URL`；方便国内通过代理访问 Claude / OpenAI |
 | `output_language` | `"Chinese"` | 报告输出语言（内部辩论始终英文） |

@@ -287,11 +287,11 @@ def select_llm_provider() -> tuple[str, str | None]:
     return provider, url
 
 
-def ask_openai_reasoning_effort(include_xhigh: bool = False) -> str:
+def ask_openai_reasoning_effort(include_max: bool = False) -> str:
     """Ask for OpenAI/Codex reasoning effort level."""
-    if include_xhigh:
+    if include_max:
         choices = [
-            questionary.Choice("XHigh (Codex max, Default)", "xhigh"),
+            questionary.Choice("Max (Codex maximum, Default)", "max"),
             questionary.Choice("High", "high"),
             questionary.Choice("Medium", "medium"),
             questionary.Choice("Low (Faster)", "low"),

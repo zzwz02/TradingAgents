@@ -187,7 +187,7 @@ def _build_config() -> dict:
     provider = str(config["llm_provider"]).lower()
     if provider == "codex-cli":
         config["openai_reasoning_effort"] = (
-            config.get("openai_reasoning_effort") or "xhigh"
+            config.get("openai_reasoning_effort") or "max"
         )
         config["anthropic_effort"] = None
     elif provider == "claude-code":

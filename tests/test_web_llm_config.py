@@ -15,6 +15,9 @@ def test_web_model_config_exposes_subscription_cli_providers_first(monkeypatch):
 
     assert sidebar._PROVIDER_KEYS[:2] == ["codex-cli", "claude-code"]
     assert sidebar._PROVIDER_KEYS[0] == dc.DEFAULT_CONFIG["llm_provider"]
+    assert dc.DEFAULT_CONFIG["quick_think_llm"] == "gpt-5.6-sol"
+    assert dc.DEFAULT_CONFIG["deep_think_llm"] == "gpt-5.6-sol"
+    assert dc.DEFAULT_CONFIG["openai_reasoning_effort"] == "max"
 
 
 def test_web_runner_prints_astock_pipeline_confirmation(capsys):
@@ -25,8 +28,8 @@ def test_web_runner_prints_astock_pipeline_confirmation(capsys):
         "2026-07-04",
         {
             "llm_provider": "codex-cli",
-            "quick_think_llm": "gpt-5.5",
-            "deep_think_llm": "gpt-5.5",
+            "quick_think_llm": "gpt-5.6-sol",
+            "deep_think_llm": "gpt-5.6-sol",
         },
     )
 

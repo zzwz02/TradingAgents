@@ -130,13 +130,13 @@ def _reload_config_with_env(monkeypatch, **overrides):
     return importlib.reload(default_config_module)
 
 
-def test_codex_cli_defaults_to_gpt55_max_reasoning(monkeypatch):
+def test_codex_cli_defaults_to_gpt56_sol_max_reasoning(monkeypatch):
     dc = _reload_config_with_env(
         monkeypatch, TRADINGAGENTS_LLM_PROVIDER="codex-cli"
     )
-    assert dc.DEFAULT_CONFIG["deep_think_llm"] == "gpt-5.5"
-    assert dc.DEFAULT_CONFIG["quick_think_llm"] == "gpt-5.5"
-    assert dc.DEFAULT_CONFIG["openai_reasoning_effort"] == "xhigh"
+    assert dc.DEFAULT_CONFIG["deep_think_llm"] == "gpt-5.6-sol"
+    assert dc.DEFAULT_CONFIG["quick_think_llm"] == "gpt-5.6-sol"
+    assert dc.DEFAULT_CONFIG["openai_reasoning_effort"] == "max"
 
 
 def test_claude_code_defaults_to_fable_and_opus_ultra(monkeypatch):
@@ -176,7 +176,7 @@ def test_provider_kwargs_default_to_max_thinking():
         graph.config = config
         return graph._get_provider_kwargs()
 
-    assert kwargs_for({"llm_provider": "codex-cli"})["reasoning_effort"] == "xhigh"
+    assert kwargs_for({"llm_provider": "codex-cli"})["reasoning_effort"] == "max"
     assert kwargs_for({"llm_provider": "claude-code"})["reasoning_effort"] == "xhigh"
     assert kwargs_for(
         {"llm_provider": "claude-code", "anthropic_effort": "low"}
@@ -464,7 +464,7 @@ def test_default_model_omits_model_flag():
     assert "--model" not in ClaudeRunner("default")._base_cmd()
     assert "--model" in ClaudeRunner("sonnet")._base_cmd()
     assert "-m" not in CodexExecRunner("default")._common_flags()
-    assert "-m" in CodexExecRunner("gpt-5.5")._common_flags()
+    assert "-m" in CodexExecRunner("gpt-5.6-sol")._common_flags()
 
 
 # -- persistent MCP runner against a scripted server -----------------------------
