@@ -5,12 +5,11 @@ from dateutil.relativedelta import relativedelta
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from tradingagents.agents.utils.agent_utils import (
     build_instrument_context,
+    get_fundamentals,
     get_indicators,
     get_language_instruction,
     get_stock_data,
 )
-from tradingagents.dataflows.config import get_config
-
 logger = logging.getLogger(__name__)
 
 _PREFETCH_STOCK_LOOKBACK_DAYS = 45
@@ -53,6 +52,10 @@ def _build_prefetched_market_data(ticker: str, current_date: str) -> str:
     model chooses to answer directly.
     """
     start_date = _prefetch_start_date(current_date)
+    quote_data = _safe_tool_invoke(
+        get_fundamentals,
+        {"ticker": ticker, "curr_date": current_date},
+    )
     stock_data = _safe_tool_invoke(
         get_stock_data,
         {
@@ -74,7 +77,8 @@ def _build_prefetched_market_data(ticker: str, current_date: str) -> str:
     message = (
         "Prefetched A-stock technical data for "
         f"{ticker} through {current_date}: "
-        f"{len(stock_data)} stock chars, {len(indicator_data)} indicator chars"
+        f"{len(quote_data)} quote chars, {len(stock_data)} stock chars, "
+        f"{len(indicator_data)} indicator chars"
     )
     logger.info(
         "%s",
@@ -90,6 +94,8 @@ def _build_prefetched_market_data(ticker: str, current_date: str) -> str:
         "以下数据已在技术分析师运行前由后台直连工具获取。必须优先使用这些数据；"
         "如果某段包含 [数据缺失] 或错误信息，请在报告中明确标注对应缺口，"
         "并可继续调用工具补拉。\n\n"
+        "### 实时行情、换手率与股本快照\n"
+        f"{quote_data}\n\n"
         "### K 线与成交量\n"
         f"{stock_data}\n\n"
         "### 技术指标\n"
@@ -108,6 +114,7 @@ def create_market_analyst(llm):
         tools = [
             get_stock_data,
             get_indicators,
+            get_fundamentals,
         ]
 
         system_message = (

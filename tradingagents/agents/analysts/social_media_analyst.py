@@ -1,7 +1,10 @@
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from tradingagents.agents.utils.agent_utils import build_instrument_context, get_language_instruction, get_news
-from tradingagents.dataflows.config import get_config
-
+from tradingagents.agents.utils.agent_utils import (
+    build_instrument_context,
+    get_language_instruction,
+    get_news,
+    get_social_sentiment,
+)
 
 def create_social_media_analyst(llm):
     def social_media_analyst_node(state):
@@ -10,6 +13,7 @@ def create_social_media_analyst(llm):
 
         tools = [
             get_news,
+            get_social_sentiment,
         ]
 
         system_message = (
@@ -20,7 +24,7 @@ def create_social_media_analyst(llm):
             "\n- **情绪指标**：关注以下情绪信号 - 连续涨停后的追涨情绪、业绩暴雷后的恐慌抛售、机构调研后的预期变化、热门概念炒作的跟风程度。"
             "\n- **反向指标**：当市场情绪一致性过高（极度乐观或极度悲观）时，往往是反转信号。散户一致看多可能是阶段顶部。"
             "\n- **时间维度**：区分短期情绪波动（1-3 天，由单一事件驱动）和中期情绪趋势（1-4 周，由基本面变化驱动）。"
-            "\n\n请使用 `get_news(query, start_date, end_date)` 工具获取公司相关新闻和市场讨论。从新闻内容中推断市场情绪方向、强度和可能的转折点。"
+            "\n\n请先调用 `get_social_sentiment(ticker, curr_date, look_back_days, limit)` 获取东方财富股吧原帖样本、阅读量、评论量和点赞量；再调用 `get_news(ticker, start_date, end_date)` 获取公司新闻进行交叉验证。不要用新闻条数冒充社交平台讨论量。"
             "\n\n撰写详细的市场情绪分析报告，包含情绪评分（极度悲观/悲观/中性/乐观/极度乐观）和趋势判断。报告末尾附 Markdown 表格汇总情绪信号和结论。"
             "\n\n📋 必采清单 — 以下数据点必须出现在报告中，无法获取时标注 [数据缺失: xxx]："
             "\n1. 新闻检索条数和时间范围"
@@ -28,6 +32,7 @@ def create_social_media_analyst(llm):
             "\n3. 排名前 3 的舆情主题"
             "\n4. 情绪评分（极度悲观/悲观/中性/乐观/极度乐观）"
             "\n5. 情绪趋势变化方向（升温/降温/平稳）"
+            "\n6. 股吧样本量、阅读量、评论量、点赞量及互动最高的帖子"
             + get_language_instruction()
         )
 

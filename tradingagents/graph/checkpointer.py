@@ -16,6 +16,9 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from tradingagents.dataflows.utils import safe_ticker_component
 
 
+_SQLITE_BUSY_TIMEOUT_MS = 30_000
+
+
 def _db_path(data_dir: str | Path, ticker: str) -> Path:
     """Return the SQLite checkpoint DB path for a ticker."""
     # Reject ticker values that would escape the checkpoints directory.
@@ -23,6 +26,22 @@ def _db_path(data_dir: str | Path, ticker: str) -> Path:
     p = Path(data_dir) / "checkpoints"
     p.mkdir(parents=True, exist_ok=True)
     return p / f"{safe}.db"
+
+
+def _connect(db: Path, *, check_same_thread: bool = True) -> sqlite3.Connection:
+    """Open a checkpoint connection with a Web-friendly lock timeout.
+
+    LangGraph's SQLite saver enables WAL mode during setup.  Streamlit can still
+    have a writer and a history/cleanup connection overlap briefly, so use a
+    30-second busy timeout instead of sqlite3's 5-second default.
+    """
+    conn = sqlite3.connect(
+        str(db),
+        timeout=_SQLITE_BUSY_TIMEOUT_MS / 1000,
+        check_same_thread=check_same_thread,
+    )
+    conn.execute(f"PRAGMA busy_timeout = {_SQLITE_BUSY_TIMEOUT_MS}")
+    return conn
 
 
 def thread_id(ticker: str, date: str) -> str:
@@ -34,7 +53,7 @@ def thread_id(ticker: str, date: str) -> str:
 def get_checkpointer(data_dir: str | Path, ticker: str) -> Generator[SqliteSaver, None, None]:
     """Context manager yielding a SqliteSaver backed by a per-ticker DB."""
     db = _db_path(data_dir, ticker)
-    conn = sqlite3.connect(str(db), check_same_thread=False)
+    conn = _connect(db, check_same_thread=False)
     try:
         saver = SqliteSaver(conn)
         saver.setup()
@@ -79,12 +98,18 @@ def clear_checkpoint(data_dir: str | Path, ticker: str, date: str) -> None:
     if not db.exists():
         return
     tid = thread_id(ticker, date)
-    conn = sqlite3.connect(str(db))
+    conn = _connect(db)
     try:
+        existing_tables = {
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            )
+        }
         for table in ("writes", "checkpoints"):
+            if table not in existing_tables:
+                continue
             conn.execute(f"DELETE FROM {table} WHERE thread_id = ?", (tid,))
         conn.commit()
-    except sqlite3.OperationalError:
-        pass
     finally:
         conn.close()

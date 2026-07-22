@@ -1,13 +1,10 @@
 """Test checkpoint resume: crash mid-analysis, re-run resumes from last node."""
 
-import sqlite3
 import tempfile
 import unittest
-from pathlib import Path
 from typing import TypedDict
 from unittest.mock import MagicMock
 
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, StateGraph
 
 from tradingagents.graph.trading_graph import TradingAgentsGraph
@@ -143,6 +140,13 @@ class TestCheckpointResume(unittest.TestCase):
 
         # Original date checkpoint still exists (untouched)
         self.assertTrue(has_checkpoint(self.tmpdir, self.ticker, self.date))
+
+    def test_checkpointer_uses_extended_busy_timeout(self):
+        """Web history/cleanup connections get time to wait for active writes."""
+        with get_checkpointer(self.tmpdir, self.ticker) as saver:
+            busy_timeout = saver.conn.execute("PRAGMA busy_timeout").fetchone()[0]
+
+        self.assertEqual(busy_timeout, 30_000)
 
     def test_trading_graph_prepare_uses_none_input_when_resuming(self):
         """TradingAgentsGraph must resume with None input, not a fresh state."""

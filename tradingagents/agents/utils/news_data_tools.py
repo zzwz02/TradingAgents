@@ -38,6 +38,19 @@ def get_global_news(
     """
     return route_to_vendor("get_global_news", curr_date, look_back_days, limit)
 
+
+@tool
+def get_social_sentiment(
+    ticker: Annotated[str, "6-digit A-stock code"],
+    curr_date: Annotated[str, "Current date in yyyy-mm-dd format"],
+    look_back_days: Annotated[int, "Number of days to look back"] = 7,
+    limit: Annotated[int, "Maximum number of posts to return"] = 20,
+) -> str:
+    """Retrieve public Eastmoney Guba posts with read/comment/like counts."""
+    return route_to_vendor(
+        "get_social_sentiment", ticker, curr_date, look_back_days, limit
+    )
+
 @tool
 def get_insider_transactions(
     ticker: Annotated[str, "6-digit A-stock code (e.g. 600379). Must be numeric, NOT company name"],

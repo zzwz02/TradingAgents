@@ -58,6 +58,16 @@ def _price_df(prices):
     return pd.DataFrame({"Close": prices})
 
 
+def _a_stock_price_df(prices):
+    """Minimal A-stock OHLCV frame used by the direct data-source path."""
+    return pd.DataFrame(
+        {
+            "Date": pd.bdate_range("2026-01-05", periods=len(prices)),
+            "Close": prices,
+        }
+    )
+
+
 def _make_pm_state(past_context=""):
     """Minimal AgentState dict for portfolio_manager_node."""
     return {
@@ -489,16 +499,18 @@ class TestDeferredReflection:
         stock_prices = [100.0, 102.0, 104.0, 103.0, 105.0, 106.0]
         bench_prices = [4000.0, 4020.0, 4040.0, 4030.0, 4050.0, 4060.0]
         mock_graph = MagicMock(spec=TradingAgentsGraph)
-        with patch("yfinance.Ticker") as mock_ticker_cls:
-            def _make_ticker(sym):
-                m = MagicMock()
-                m.history.return_value = _price_df(bench_prices if sym == "000300.SS" else stock_prices)
-                return m
-            mock_ticker_cls.side_effect = _make_ticker
-            raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "688017", "2026-01-05")
+        with patch(
+            "tradingagents.dataflows.a_stock._load_ohlcv_astock"
+        ) as mock_load, patch("yfinance.Ticker") as mock_ticker_cls:
+            mock_load.side_effect = lambda symbol, end: _a_stock_price_df(
+                bench_prices if symbol == "000300" else stock_prices
+            )
+            raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "601899", "2026-01-05")
         assert raw is not None and alpha is not None and days is not None
         assert isinstance(raw, float) and isinstance(alpha, float) and isinstance(days, int)
         assert days == 5
+        mock_ticker_cls.assert_not_called()
+        assert [call.args[0] for call in mock_load.call_args_list] == ["601899", "000300"]
 
     def test_fetch_returns_too_recent(self):
         """Only 1 data point available → returns (None, None, None), no crash."""
@@ -525,12 +537,12 @@ class TestDeferredReflection:
         stock_prices = [100.0, 102.0, 104.0, 103.0, 105.0, 106.0]
         bench_prices = [4000.0, 4020.0, 4030.0]
         mock_graph = MagicMock(spec=TradingAgentsGraph)
-        with patch("yfinance.Ticker") as mock_ticker_cls:
-            def _make_ticker(sym):
-                m = MagicMock()
-                m.history.return_value = _price_df(bench_prices if sym == "000300.SS" else stock_prices)
-                return m
-            mock_ticker_cls.side_effect = _make_ticker
+        with patch(
+            "tradingagents.dataflows.a_stock._load_ohlcv_astock"
+        ) as mock_load:
+            mock_load.side_effect = lambda symbol, end: _a_stock_price_df(
+                bench_prices if symbol == "000300" else stock_prices
+            )
             raw, alpha, days = TradingAgentsGraph._fetch_returns(mock_graph, "688017", "2026-01-05")
         assert raw is not None and alpha is not None and days is not None
         assert days == 2

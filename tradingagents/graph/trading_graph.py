@@ -4,12 +4,19 @@ import logging
 import os
 from pathlib import Path
 import json
+import re
 from datetime import datetime, timedelta
 from typing import Dict, Any, Tuple, List, Optional
 
+import pandas as pd
 import yfinance as yf
 
 logger = logging.getLogger(__name__)
+
+_A_STOCK_TICKER_RE = re.compile(
+    r"^(?:(?:SH|SZ|BJ))?\d{6}(?:\.(?:SS|SH|SZ|BJ))?$",
+    re.IGNORECASE,
+)
 
 from langgraph.prebuilt import ToolNode
 
@@ -36,6 +43,7 @@ from tradingagents.agents.utils.agent_utils import (
     get_cashflow,
     get_income_statement,
     get_news,
+    get_social_sentiment,
     get_insider_transactions,
     get_global_news,
     get_profit_forecast,
@@ -187,12 +195,15 @@ class TradingAgentsGraph:
                     get_stock_data,
                     # Technical indicators
                     get_indicators,
+                    # Realtime quote / turnover snapshot
+                    get_fundamentals,
                 ]
             ),
             "social": ToolNode(
                 [
                     # News tools for social media analysis
                     get_news,
+                    get_social_sentiment,
                 ]
             ),
             "news": ToolNode(
@@ -256,8 +267,35 @@ class TradingAgentsGraph:
             end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays
             end_str = end.strftime("%Y-%m-%d")
 
-            stock = yf.Ticker(ticker).history(start=trade_date, end=end_str)
-            benchmark = yf.Ticker("000300.SS").history(start=trade_date, end=end_str)
+            if _A_STOCK_TICKER_RE.fullmatch(ticker.strip()):
+                # The A-stock pipeline uses six-digit local symbols.  Sending
+                # those directly to Yahoo (for example ``601899``) produces a
+                # noisy 404/delisted warning because Yahoo expects 601899.SS.
+                # Reuse the same resilient A-stock source as the analysis so
+                # outcome reflection works even when Yahoo is unavailable.
+                from tradingagents.dataflows.a_stock import (
+                    _load_ohlcv_astock,
+                    _normalize_ticker,
+                )
+
+                def _history(code: str) -> pd.DataFrame:
+                    frame = _load_ohlcv_astock(code, end_str)
+                    if frame is None or frame.empty or "Date" not in frame.columns:
+                        return pd.DataFrame(columns=["Close"])
+                    dates = pd.to_datetime(frame["Date"], errors="coerce")
+                    mask = (dates >= pd.Timestamp(trade_date)) & (
+                        dates < pd.Timestamp(end_str)
+                    )
+                    return frame.loc[mask].sort_values("Date")
+
+                stock = _history(_normalize_ticker(ticker))
+                benchmark = _history("000300")
+            else:
+                stock = yf.Ticker(ticker).history(start=trade_date, end=end_str)
+                benchmark = yf.Ticker("000300.SS").history(
+                    start=trade_date,
+                    end=end_str,
+                )
 
             if len(stock) < 2 or len(benchmark) < 2:
                 return None, None, None

@@ -30,7 +30,7 @@ def _sina_bars_until_0611():
 
 
 class _FakeMootdxClient:
-    def bars(self, symbol, category, offset):
+    def bars(self, symbol, frequency, offset):
         return _mootdx_bars_until_0610()
 
 
@@ -70,3 +70,38 @@ def test_load_ohlcv_astock_supplements_fresh_cache_with_sina(tmp_path, monkeypat
 
     assert result["Date"].max() == pd.Timestamp("2026-06-11")
     assert result.loc[result["Date"] == pd.Timestamp("2026-06-11"), "Close"].item() == 57.47
+
+
+def test_load_ohlcv_astock_keeps_memory_result_when_cache_is_read_only(
+    tmp_path, monkeypatch
+):
+    from tradingagents.dataflows import a_stock
+    from tradingagents.dataflows import config as dataflow_config
+
+    cache_file = Path(tmp_path) / "000628-astock-daily.csv"
+    _mootdx_bars_until_0610().reset_index().rename(
+        columns={
+            "datetime": "Date",
+            "open": "Open",
+            "high": "High",
+            "low": "Low",
+            "close": "Close",
+            "volume": "Volume",
+        }
+    ).to_csv(cache_file, index=False)
+
+    monkeypatch.setattr(
+        dataflow_config, "get_config", lambda: {"data_cache_dir": str(tmp_path)}
+    )
+    monkeypatch.setattr(
+        a_stock, "_sina_kline_fallback", lambda *args: _sina_bars_until_0611()
+    )
+    monkeypatch.setattr(
+        pd.DataFrame,
+        "to_csv",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("read-only")),
+    )
+
+    result = a_stock._load_ohlcv_astock("000628", "2026-06-11")
+
+    assert result["Date"].max() == pd.Timestamp("2026-06-11")
